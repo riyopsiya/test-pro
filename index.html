@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0">
+    <title>Crypto Mining Tycoon</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/10.3.1/decimal.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark-bg': '#121212',
+                        'card-bg': '#1E1E1E',
+                        'btn-primary': '#3B82F6',
+                        'btn-secondary': '#10B981',
+                        'btc-orange': '#F7931A',
+                        'btc-orange-dark': '#E17D18',
+                    },
+                    boxShadow: {
+                        'neon': '0 0 5px theme("colors.blue.400"), 0 0 20px theme("colors.blue.600")',
+                        'btc-glow': '0 0 10px theme("colors.btc-orange"), 0 0 30px theme("colors.btc-orange")',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'btc-pulse': 'btcPulse 2s infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                        'click-ripple': 'clickRipple 0.8s ease-out',
+                    },
+                    keyframes: {
+                        btcPulse: {
+                            '0%, 100%': { boxShadow: '0 0 0 0 rgba(247, 147, 26, 0.4)' },
+                            '50%': { boxShadow: '0 0 0 15px rgba(247, 147, 26, 0)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        clickRipple: {
+                            '0%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(247, 147, 26, 0.7)' },
+                            '70%': { transform: 'scale(1)', boxShadow: '0 0 0 10px rgba(247, 147, 26, 0)' },
+                            '100%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(247, 147, 26, 0)' },
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .progress-bar {
+            @apply bg-gray-700 rounded-full h-2 overflow-hidden;
+        }
+        
+        .progress-bar-fill {
+            @apply bg-blue-500 h-full rounded-full transition-all duration-500 ease-out;
+        }
+        
+        .glow-on-hover:hover {
+            @apply shadow-neon;
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 0; transform: translateY(0); }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; transform: translateY(-100px); }
+        }
+
+        .click-popup {
+            position: absolute;
+            animation: floatUp 2s ease-out;
+            pointer-events: none;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.7);
+        }
+
+        #usernameDisplay {
+            background: linear-gradient(45deg, #3B82F6, #10B981);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            font-weight: bold;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            display: inline-block;
+        }
+
+        #usernameDisplay::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(45deg, rgba(59, 130, 246, 0.2), rgba(16, 185, 129, 0.2));
+            border-radius: 0.5rem;
+            z-index: -1;
+            transition: all 0.3s ease;
+        }
+
+        #usernameDisplay:hover {
+            transform: translateY(-2px);
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+
+        #usernameDisplay:hover::after {
+            filter: blur(8px);
+            opacity: 0.7;
+        }
+
+        .content-wrapper {
+            padding-bottom: env(safe-area-inset-bottom, 80px);
+        }
+
+        .bottom-spacer { height: 80px; }
+
+        .nav-bar { height: 80px; }
+
+        .card {
+            @apply bg-card-bg bg-opacity-80 rounded-xl p-5 shadow-lg border border-gray-700 backdrop-filter backdrop-blur-sm transition-all duration-300 ease-in-out;
+        }
+
+        .card:hover {
+            @apply transform -translate-y-1 shadow-xl;
+        }
+
+        @keyframes floatUpCoin {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        }
+
+        .bitcoin-coin {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="%23F7931A"/><path d="M44.4 28.3c0.6-4.1-2.5-6.3-6.8-7.8l1.4-5.6-3.4-0.8-1.4 5.4c-0.9-0.2-1.8-0.4-2.7-0.6l1.4-5.5-3.4-0.8-1.4 5.6c-0.7-0.2-1.4-0.3-2.1-0.5l0-0.1-4.7-1.2-0.9 3.6s2.5 0.6 2.5 0.6c1.4 0.3 1.6 1.2 1.6 1.9l-1.6 6.4c0.1 0 0.2 0 0.3 0.1l-0.3-0.1-2.2 8.9c-0.2 0.4-0.6 1.1-1.6 0.8 0 0.1-2.5-0.6-2.5-0.6l-1.7 3.9 4.4 1.1c0.8 0.2 1.6 0.4 2.4 0.6l-1.4 5.7 3.4 0.8 1.4-5.6c0.9 0.2 1.8 0.5 2.7 0.7l-1.4 5.5 3.4 0.8 1.4-5.7c5.7 1.1 10 0.6 11.8-4.5 1.4-4.1-0.1-6.5-3-8 2.1-0.5 3.7-1.9 4.1-4.8zM34.3 37.8c-1 4.1-7.8 1.9-10 1.3l1.8-7.1c2.2 0.5 9.2 1.6 8.2 5.8zm1-10.4c-0.9 3.7-6.6 1.8-8.4 1.4l1.6-6.5c1.8 0.4 7.6 1.3 6.8 5.1z" fill="white"/></svg>');
+            background-size: contain;
+            pointer-events: none;
+        }
+
+        #cryptoClicker {
+            transition: all 0.3s ease;
+        }
+
+        #cryptoClicker:active {
+            transform: scale(0.95);
+        }
+
+        @keyframes upgradeAnimation {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.animate-upgrade {
+    animation: upgradeAnimation 0.5s ease-in-out;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 5px theme('colors.btc-orange'), 0 0 10px theme('colors.btc-orange'); }
+    50% { box-shadow: 0 0 15px theme('colors.btc-orange'), 0 0 30px theme('colors.btc-orange'); }
+}
+
+#cryptoDisplay {
+    animation: pulse-glow 4s infinite;
+    transition: all 0.3s ease;
+}
+
+#cryptoDisplay:hover {
+    transform: translateY(-5px);
+}
+
+.bitcoin-icon-wrapper {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: float 3s ease-in-out infinite;
+}
+
+.bitcoin-icon-wrapper::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, theme('colors.btc-orange') 0%, transparent 70%);
+    opacity: 0.3;
+    filter: blur(8px);
+    animation: pulse-glow 2s infinite;
+}
+
+#cryptoAmount, #cryptoValue {
+    transition: all 0.3s ease;
+}
+
+#cryptoDisplay:hover #cryptoAmount {
+    transform: scale(1.05);
+}
+
+#cryptoDisplay:hover #cryptoValue {
+    opacity: 0.8;
+}
+
+.bg-gray-800 {
+    transition: all 0.3s ease;
+}
+
+.bg-gray-800:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 5px rgba(247, 147, 26, 0.5), 0 0 10px rgba(247, 147, 26, 0.3); }
+    50% { box-shadow: 0 0 15px rgba(247, 147, 26, 0.5), 0 0 30px rgba(247, 147, 26, 0.3); }
+}
+
+#cryptoDisplay {
+    animation: pulse-glow 4s infinite;
+    transition: all 0.3s ease;
+}
+
+#cryptoDisplay:hover {
+    transform: translateY(-5px);
+}
+
+.bitcoin-icon-wrapper {
+    position: relative;
+    width: 70px;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: float 3s ease-in-out infinite;
+}
+
+.bitcoin-icon-wrapper::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(247, 147, 26, 0.2) 0%, transparent 70%);
+    filter: blur(8px);
+    animation: pulse-glow 2s infinite;
+}
+
+.bitcoin-gradient-text {
+    background: linear-gradient(45deg, #f7931a, #fbb03b);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    display: inline-block;
+}
+
+#cryptoAmount, #cryptoValue, #miningRate, #totalMined {
+    transition: all 0.3s ease;
+}
+
+#cryptoDisplay:hover #cryptoAmount {
+    transform: scale(1.05);
+}
+
+#cryptoDisplay:hover #cryptoValue {
+    opacity: 0.8;
+}
+
+.bg-gray-100 {
+    transition: all 0.3s ease;
+}
+
+.bg-gray-100:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes value-change-animation {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.value-change {
+    animation: value-change-animation 0.3s ease;
+}
+
+.bitcoin-icon-wrapper {
+    position: relative;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: float 3s ease-in-out infinite;
+    background-color: rgba(247, 147, 26, 0.1); /* Light orange background */
+    border-radius: 50%; /* Make it circular */
+    padding: 10px; /* Add some padding */
+}
+
+@media (min-width: 640px) {
+    .bitcoin-icon-wrapper {
+        width: 60px;
+        height: 60px;
+    }
+}
+
+@media (min-width: 768px) {
+    .bitcoin-icon-wrapper {
+        width: 70px;
+        height: 70px;
+    }
+}
+
+.bitcoin-icon-wrapper::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(247, 147, 26, 0.2) 0%, transparent 70%);
+    filter: blur(8px);
+    animation: pulse-glow 2s infinite;
+    border-radius: 50%; /* Make the glow effect circular */
+}
+
+    </style>
+</head>
+<body class="flex flex-col min-h-screen bg-gradient-to-b from-dark-bg to-gray-900 text-gray-200">
+    <main class="flex-grow flex flex-col items-center justify-start overflow-y-auto">
+        <div class="w-full max-w-md space-y-6 p-4 content-wrapper">
+            <div class="card">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="font-semibold"><i class="fas fa-user mr-2 text-blue-400"></i><span id="usernameDisplay" class="glow-on-hover">Player</span></span>
+                    <span class="text-green-400"><i class="fas fa-clock mr-2"></i><span id="hourlyIncomeDisplay">0 BTC/hr</span></span>
+                </div>
+                <div class="flex justify-between items-center mb-2">
+                    <span><i class="fas fa-bolt mr-2 text-yellow-400"></i><span id="electricityDisplay"><span id="currentElectricity">50</span>/<span id="maxElectricity">50</span></span></span>
+                    <button id="refillElectricity" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-4 py-2 rounded-lg text-sm font-semibold transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-opacity-50">Refill</button>
+                </div>
+                <div class="progress-bar">
+                    <div id="electricityProgress" class="progress-bar-fill" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Updated cryptoDisplay section in the HTML -->
+<div id="cryptoDisplay" class="card bg-white text-center p-4 sm:p-6 md:p-8 relative overflow-hidden group transition-all duration-300 ease-in-out hover:shadow-2xl rounded-lg sm:rounded-xl md:rounded-2xl">
+    <div class="relative z-10">
+        <div class="flex flex-col items-center justify-center mb-4 sm:mb-6">
+            <div class="bitcoin-icon-wrapper mb-2 sm:mb-4 rounded-full">
+                <i class="fab fa-bitcoin text-4xl sm:text-5xl md:text-6xl bitcoin-gradient-text"></i>
+            </div>
+            <div class="flex flex-col items-center sm:items-start">
+                <span id="cryptoAmount" class="text-3xl sm:text-4xl md:text-5xl font-bold bitcoin-gradient-text tracking-tight">0 BTC</span>
+                <span id="cryptoValue" class="text-sm sm:text-base md:text-lg text-gray-600 font-medium mt-1">≈ $0.00 USD</span>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6 md:mt-8">
+            <div class="bg-gray-100 rounded-lg p-3 sm:p-4 transition-all duration-300 hover:bg-gray-200">
+                <div class="text-xs sm:text-sm text-gray-600 mb-1">Mining Rate</div>
+                <div class="flex items-center justify-center">
+                    <i class="fas fa-tachometer-alt mr-2 text-green-500"></i>
+                    <span id="miningRate" class="text-lg sm:text-xl font-semibold bitcoin-gradient-text">0 BTC/s</span>
+                </div>
+            </div>
+            <div class="bg-gray-100 rounded-lg p-3 sm:p-4 transition-all duration-300 hover:bg-gray-200">
+                <div class="text-xs sm:text-sm text-gray-600 mb-1">Total Mined</div>
+                <div class="flex items-center justify-center">
+                    <i class="fas fa-chart-line mr-2 text-blue-500"></i>
+                    <span id="totalMined" class="text-lg sm:text-xl font-semibold bitcoin-gradient-text">0 BTC</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            
+            
+            <!-- Add this to your existing <style> section or in a separate CSS file -->
+            <style>
+            @keyframes pulse-glow {
+                0%, 100% { box-shadow: 0 0 5px theme('colors.btc-orange'), 0 0 10px theme('colors.btc-orange'); }
+                50% { box-shadow: 0 0 10px theme('colors.btc-orange'), 0 0 20px theme('colors.btc-orange'); }
+            }
+            
+            #cryptoDisplay {
+                animation: pulse-glow 3s infinite;
+            }
+            
+            .animate-bounce {
+                animation: bounce 1s infinite;
+            }
+            
+            @keyframes bounce {
+                0%, 100% { transform: translateY(-5%); }
+                50% { transform: translateY(5%); }
+            }
+            </style>
+
+            <div id="mineSection" class="w-full flex justify-center items-center my-8">
+                <button id="cryptoClicker" class="w-64 h-64 bg-gradient-to-r from-btc-orange to-btc-orange-dark hover:from-btc-orange-dark hover:to-btc-orange text-white rounded-full text-3xl font-bold shadow-lg transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-btc-orange focus:ring-opacity-50 animate-btc-pulse flex flex-col items-center justify-center">
+                    <i class="fas fa-hammer text-5xl mb-2"></i>
+                    Mine BTC
+                </button>
+            </div>
+
+            <div id="upgradeSection" class="w-full space-y-4 hidden">
+                <h2 id="upgrades" class="text-2xl font-semibold mb-4 text-white text-center">Upgrades</h2>
+                <div id="upgradesList" class="space-y-4"></div>
+              </div>
+
+            <div id="statsSection" class="w-full space-y-4 hidden">
+                <h2 class="text-2xl font-semibold mb-4 text-white text-center">Stats</h2>
+                <div id="statsList" class="space-y-4 card">
+                    <!-- Stats will be dynamically added here by JavaScript -->
+                </div>
+            </div>
+
+            <div id="leaderboardSection" class="w-full space-y-4 hidden">
+                <h2 class="text-2xl font-semibold mb-4 text-white text-center">Leaderboard</h2>
+                <div id="leaderboardList" class="space-y-2 card">
+                    <!-- Leaderboard items will be dynamically added here by JavaScript -->
+                </div>
+                <div id="userRank" class="text-center mt-4 text-white card">
+                    <!-- User's rank will be displayed here -->
+                </div>
+            </div>
+
+            <div class="bottom-spacer"></div>
+        </div>
+    </main>
+
+    <nav class="nav-bar bg-gray-900 bg-opacity-80 shadow-lg backdrop-filter backdrop-blur-md fixed bottom-0 left-0 right-0 z-50">
+        <div class="flex justify-around h-full max-w-md mx-auto">
+            <button class="nav-btn flex flex-col items-center justify-center flex-1 py-2 px-1 text-center focus:outline-none transition-colors duration-300 hover:bg-gray-800 hover:bg-opacity-50" data-section="mine">
+                <i class="fas fa-hammer text-xl mb-1"></i>
+                <span class="text-xs">Mine</span>
+            </button>
+            <button class="nav-btn flex flex-col items-center justify-center flex-1 py-2 px-1 text-center focus:outline-none transition-colors duration-300 hover:bg-gray-800 hover:bg-opacity-50" data-section="upgrade">
+                <i class="fas fa-arrow-up text-xl mb-1"></i>
+                <span class="text-xs">Upgrade</span>
+            </button>
+            <button class="nav-btn flex flex-col items-center justify-center flex-1 py-2 px-1 text-center focus:outline-none transition-colors duration-300 hover:bg-gray-800 hover:bg-opacity-50" data-section="stats">
+                <i class="fas fa-chart-bar text-xl mb-1"></i><span class="text-xs">Stats</span>
+            </button>
+            <button class="nav-btn flex flex-col items-center justify-center flex-1 py-2 px-1 text-center focus:outline-none transition-colors duration-300 hover:bg-gray-800 hover:bg-opacity-50" data-section="leaderboard">
+                <i class="fas fa-trophy text-xl mb-1"></i>
+                <span class="text-xs">Leaderboard</span>
+            </button>
+        </div>
+    </nav>
+
+    <div id="notificationContainer" class="fixed top-4 right-4 z-50"></div>
+    <div id="clickAnimationContainer" class="fixed inset-0 pointer-events-none z-50"></div>
+    <div id="bitcoinContainer" class="fixed inset-0 pointer-events-none z-40"></div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
